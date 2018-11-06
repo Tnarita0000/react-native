@@ -4,6 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
+ * @flow
  * @format
  */
 
@@ -21,6 +22,8 @@ const View = require('View');
 
 const keyMirror = require('fbjs/lib/keyMirror');
 const normalizeColor = require('normalizeColor');
+
+import type {PressEvent} from 'CoreEventTypes';
 
 /**
  * `Touchable`: Taps done right.
@@ -390,7 +393,7 @@ const TouchableMixin = {
    * @param {SyntheticEvent} e Synthetic event from event system.
    *
    */
-  touchableHandleResponderGrant: function(e) {
+  touchableHandleResponderGrant: function(e: SyntheticEvent<>) {
     const dispatchID = e.currentTarget;
     // Since e is used in a callback invoked on another event loop
     // (as in setTimeout etc), we need to call e.persist() on the
@@ -431,21 +434,21 @@ const TouchableMixin = {
   /**
    * Place as callback for a DOM element's `onResponderRelease` event.
    */
-  touchableHandleResponderRelease: function(e) {
+  touchableHandleResponderRelease: function(e: SyntheticEvent<>) {
     this._receiveSignal(Signals.RESPONDER_RELEASE, e);
   },
 
   /**
    * Place as callback for a DOM element's `onResponderTerminate` event.
    */
-  touchableHandleResponderTerminate: function(e) {
+  touchableHandleResponderTerminate: function(e: SyntheticEvent<>) {
     this._receiveSignal(Signals.RESPONDER_TERMINATED, e);
   },
 
   /**
    * Place as callback for a DOM element's `onResponderMove` event.
    */
-  touchableHandleResponderMove: function(e) {
+  touchableHandleResponderMove: function(e: SyntheticEvent<>) {
     // Not enough time elapsed yet, wait for highlight -
     // this is just a perf optimization.
     if (
@@ -632,7 +635,14 @@ const TouchableMixin = {
     UIManager.measure(tag, this._handleQueryLayout);
   },
 
-  _handleQueryLayout: function(l, t, w, h, globalX, globalY) {
+  _handleQueryLayout: function(
+    l: number,
+    t: number,
+    w: number,
+    h: number,
+    globalX: number,
+    globalY: number,
+  ) {
     //don't do anything UIManager failed to measure node
     if (!l && !t && !w && !h && !globalX && !globalY) {
       return;
@@ -651,12 +661,12 @@ const TouchableMixin = {
     );
   },
 
-  _handleDelay: function(e) {
+  _handleDelay: function(e: Event) {
     this.touchableDelayTimeout = null;
     this._receiveSignal(Signals.DELAY, e);
   },
 
-  _handleLongDelay: function(e) {
+  _handleLongDelay: function(e: Event) {
     this.longPressDelayTimeout = null;
     const curState = this.state.touchable.touchState;
     if (
@@ -684,7 +694,7 @@ const TouchableMixin = {
    * @throws Error if invalid state transition or unrecognized signal.
    * @sideeffects
    */
-  _receiveSignal: function(signal, e) {
+  _receiveSignal: function(signal, e: Event) {
     const responderID = this.state.touchable.responderID;
     const curState = this.state.touchable.touchState;
     const nextState = Transitions[curState] && Transitions[curState][signal];
@@ -731,7 +741,7 @@ const TouchableMixin = {
     );
   },
 
-  _savePressInLocation: function(e) {
+  _savePressInLocation: function(e: PressEvent) {
     const touch = TouchEventUtils.extractSingleTouch(e.nativeEvent);
     const pageX = touch && touch.pageX;
     const pageY = touch && touch.pageY;
@@ -740,7 +750,12 @@ const TouchableMixin = {
     this.pressInLocation = {pageX, pageY, locationX, locationY};
   },
 
-  _getDistanceBetweenPoints: function(aX, aY, bX, bY) {
+  _getDistanceBetweenPoints: function(
+    aX: number,
+    aY: number,
+    bX: number,
+    bY: number,
+  ) {
     const deltaX = aX - bX;
     const deltaY = aY - bY;
     return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -757,7 +772,7 @@ const TouchableMixin = {
    * @param {Event} e Native event.
    * @sideeffects
    */
-  _performSideEffectsForTransition: function(curState, nextState, signal, e) {
+  _performSideEffectsForTransition: function(curState, nextState, signal, e: Event) {
     const curIsHighlight = this._isHighlight(curState);
     const newIsHighlight = this._isHighlight(nextState);
 
@@ -812,12 +827,12 @@ const TouchableMixin = {
     UIManager.playTouchSound();
   },
 
-  _startHighlight: function(e) {
+  _startHighlight: function(e: PressEvent) {
     this._savePressInLocation(e);
     this.touchableHandleActivePressIn && this.touchableHandleActivePressIn(e);
   },
 
-  _endHighlight: function(e) {
+  _endHighlight: function(e: PressEvent) {
     if (this.touchableHandleActivePressOut) {
       if (
         this.touchableGetPressOutDelayMS &&
@@ -839,7 +854,13 @@ const Touchable = {
   /**
    * Renders a debugging overlay to visualize touch target with hitSlop (might not work on Android).
    */
-  renderDebugView: ({color, hitSlop}) => {
+  renderDebugView: ({
+    color,
+    hitSlop,
+  }: {
+    color: string | number,
+    hitSlop: Object,
+  }) => {
     if (!Touchable.TOUCH_TARGET_DEBUG) {
       return null;
     }
@@ -855,19 +876,15 @@ const Touchable = {
     }
     const hexColor =
       '#' + ('00000000' + normalizeColor(color).toString(16)).substr(-8);
-    return (
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          borderColor: hexColor.slice(0, -2) + '55', // More opaque
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          backgroundColor: hexColor.slice(0, -2) + '0F', // Less opaque
-          ...debugHitSlopStyle,
-        }}
-      />
-    );
+    const style = {
+      position: 'absolute',
+      borderColor: hexColor.slice(0, -2) + '55', // More opaque
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      backgroundColor: hexColor.slice(0, -2) + '0F', // Less opaque
+      ...debugHitSlopStyle,
+    };
+    return <View pointerEvents="none" style={style} />;
   },
 };
 
